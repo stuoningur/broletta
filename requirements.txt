@@ -1,0 +1,6 @@
+aiosqlite
+discord.py
+python-dotenv
+orjson
+aiodns
+Brotli
