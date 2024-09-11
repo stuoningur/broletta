@@ -1,6 +1,8 @@
+import logging
+import logging.handlers
+import os
 import sys
 from pathlib import Path
-import os
 
 import discord
 import tomllib
@@ -18,6 +20,26 @@ else:
 intents = discord.Intents.all()
 
 
+logger = logging.getLogger()
+logger.setLevel(logging.DEBUG)
+
+formatter = logging.Formatter(
+    "[{asctime}] [{levelname:<8}] {name}: {message}", "%Y-%m-%d %H:%M:%S", style="{"
+)
+
+stdout_handler = logging.StreamHandler()
+stdout_handler.setFormatter(formatter)
+
+file_handler = logging.handlers.TimedRotatingFileHandler(
+    "loretta.log", when="midnight", backupCount=31, encoding="utf-8"
+)
+file_handler.setFormatter(formatter)
+
+
+logger.addHandler(stdout_handler)
+logger.addHandler(file_handler)
+
+
 class Loretta(commands.Bot):
     def __init__(self):
         super().__init__(
@@ -25,19 +47,22 @@ class Loretta(commands.Bot):
             intents=intents,
             help_command=None,
         )
+        self.logger = logger
+        self.config = config
+
+    async def load_cogs(self) -> None:
+        cogs_dir = Path("cogs")
+        for cog_file in cogs_dir.rglob("*.py"):
+            cog_name = ".".join(cog_file.with_suffix("").parts)
+            self.logger.info(f"Loaded cog: {cog_name}")
+            await self.load_extension(f"{cog_name}")
 
     async def on_ready(self):
         if self.user:
-            print(f"Logged in as {self.user} (ID: {self.user.id})")
+            logger.info(f"Logged in as {self.user} (ID: {self.user.id})")
 
-    async def on_message(self, message):
-        print(f"Message from {message.author}: {message.content}")
-
-    async def on_error(self, event, *args, **kwargs):
-        print(f"Error in {event}: {args[0]}")
-
-    async def on_command_error(self, ctx, error):
-        print(f"Error in command {ctx.command}: {error}")
+    async def setup_hook(self) -> None:
+        await self.load_cogs()
 
 
 load_dotenv()
@@ -46,4 +71,4 @@ if bot_token is None:
     sys.exit("Token not found in environment variables. Exiting...")
 else:
     bot = Loretta()
-    bot.run(bot_token)
+    bot.run(bot_token, log_handler=None)
